@@ -6,55 +6,57 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <ctype.h>
 
 #define CORRECT 1
 #define ERROR 0
-
+#define MAX_BUFFER_SIZE 512
 typedef enum {
 	OK,
     ERR
-} outcome;
+} result;
 
 typedef enum {
 	START,
     SYNTAX,
 	DATA,
 	STATS
-} typeRes;
+} responseType;
 
 typedef struct {
-	outcome state;
-	typeRes type;
-	char message[512];
-	int nElementElab;
+	result state;
+	responseType type;
+	char message[MAX_BUFFER_SIZE];
+	int elemCalculated;
 	float avg;
 	float var;
-} responseStr;
+} serverResponse;
 
-void setDelimeter(char* str);
-int checkInt(char* str);
-void clearBuffer(char* buffer);
-int parse_response(responseStr* response, char buffer[]);
+void replaceEndOfString(char* str);
+int convertInteger(char* str);
+int checkIfNumber(char* str);
+void resetBuffer(char* buffer);
+int parse_response(serverResponse* response, char buffer[]);
 char* substr(char *src, int m, int n);
 
 int main(int argc, char *argv[]) {
 
     int simpleSocket = 0;
-    int simplePort = 0;
+    int serverPort = 0;
     int returnStatus = 0;
-    char buffer[512] = "";
-	char bufferMsg[512] = "";
-	char strTmp[512] = "";
-    struct sockaddr_in simpleServer;
+    char buffer[MAX_BUFFER_SIZE] = "";
+	char bufferMsg[MAX_BUFFER_SIZE] = "";
+	char strTmp[MAX_BUFFER_SIZE] = "";
+    struct sockaddr_in server;
 	
-    responseStr response;
+    serverResponse response;
 	
-    if (3 != argc) {
-        fprintf(stderr, "Usage: %s <server> <port>\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "Number of arguments incorrect.\n Usage: %s <server> <port>\n", argv[0]);
         exit(1);
     }
 
-    /* create a streaming socket      */
+    /* create socket      */
     simpleSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     if (simpleSocket == -1){
@@ -62,14 +64,14 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    simplePort = atoi(argv[2]);
-    memset(&simpleServer, '\0', sizeof(simpleServer));
-    simpleServer.sin_family = AF_INET;
-    simpleServer.sin_addr.s_addr=inet_addr(argv[1]);	
-    simpleServer.sin_port = htons(simplePort);
+    serverPort = atoi(argv[2]);
+    memset(&server, '\0', sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_addr.s_addr= inet_addr(argv[1]);	
+    server.sin_port = htons(serverPort);
 
     /*  connect to the address and port with our socket  */
-    returnStatus = connect(simpleSocket, (struct sockaddr *)&simpleServer, sizeof(simpleServer));
+    returnStatus = connect(simpleSocket, (struct sockaddr *)&server, sizeof(server));
     if (returnStatus < 0) {
         fprintf(stderr, "Could not connect to address!\n");
 		close(simpleSocket);
@@ -78,97 +80,80 @@ int main(int argc, char *argv[]) {
 
     returnStatus = read(simpleSocket, buffer, sizeof(buffer));
     if (parse_response(&response, buffer)==ERROR) {
-        printf("Format response not valid\n");
+        printf("Invalid Format response. Close socket.\n");
         close(simpleSocket);
         exit(1);
     }
 	
-	printf("Welcome message: %s\n", response.message);
-	printf("This program asks the number of values ​​to be processed and the respective value.\n");
-	printf("Avg and variance are returned\n");
-	printf("Insert 0 when ask number of value for terminate the sequence.\n\n");	
+	printf("** Welcome: %s **\n", response.message);
+	printf("** This program is writed to give you Average and Variance **\n");
+	printf("** Insert the number of the data you want to calculate. **\n");
+	printf("** After that you have requested to insert the values, one at a time. **\n");
+	printf("** Insert 0 To terminate and start the calculation. **\n\n");	
 
-	int nValues;
+	int val;
+	int tmpValue;
 	
 	do{
-		clearBuffer(buffer);
-		clearBuffer(bufferMsg);
-		printf("Insert number of value to be processed (0 for terminate): ");		
+		resetBuffer(buffer);
+		resetBuffer(bufferMsg);
+		printf("Insert how many numbers do you want to process (0 for finish): ");		
 		fgets(buffer, sizeof(buffer) - 1, stdin);
-		setDelimeter(buffer);
+		replaceEndOfString(buffer);
 		if(strcmp(buffer,"0")==0){
-			nValues = 0;			
+			val = 0;			
 		}else{
-			nValues = checkInt(buffer);			
-			if(nValues < 0){
+			val = checkIfNumber(buffer) == 1 ? convertInteger(buffer): -1;			
+			if(val < 0){
 				printf("Value should be positive integer\n");
 				continue;
 			}
 		}
-		int valueTmp;
-		int arrValue[nValues];
-		arrValue[0] = nValues;
-		sprintf (strTmp, "%d", nValues);
+		
+		sprintf (strTmp, "%d", val);
 		strcat(bufferMsg,strTmp);
-		if (nValues != 0) {
+		if (val != 0) {
 			strcat(bufferMsg," ");
 		}
 
-		for (int i = 0; i <= nValues; i++ )
+		for (int i = 0; i <= val; i++ )
 		{
-			if( i < nValues) {
+			if( i < val) {
 
-				valueTmp = 0;
-				clearBuffer(buffer);
+				tmpValue = 0;
+				resetBuffer(buffer);
 
 
 				printf("Insert %d° number : ",i+1);
 				fgets(buffer, sizeof(buffer) - 1, stdin);
-				valueTmp = checkInt(buffer);
-				if(valueTmp<=0){
+				tmpValue = checkIfNumber(buffer)== 1 ? convertInteger(buffer): -1;
+				if(tmpValue<=0){
 					printf("number not correct\n");
 					i=i-1;
 					continue;
 				}
-				arrValue[i+1] = valueTmp;
-
-				sprintf (strTmp, "%d", valueTmp);
+				sprintf (strTmp, "%d", tmpValue);
 				strcat(bufferMsg,strTmp);
-				if (i+1 != nValues) {
+				if (i+1 != val) {
 					strcat(bufferMsg," ");
 				}
 			} else {
 				strcat(bufferMsg,"\n");
 				printf("sto mettendo LF %s \n", bufferMsg);
 				if (bufferMsg[strlen(bufferMsg)-1] != '\n') {
-     			   printf("ERROR <LF> not found\n");
+     			   printf("ERROR End Line Character not found\n");
         			
     			}
 
 			}
 		}
 
-		//COMPONE MESSAGE
-		// clearBuffer(buffer);
-		// for(i=0;i<=nValues;i++){
-		// 	sprintf (strTmp, "%d", arrValue[i]);
-		// 	strcat(buffer,strTmp);
-		// 	if(i<nValues){
-		// 		strcat(buffer," ");
-		// 	}else{
-		// 		strcat(buffer,"\n");
-		// 	}
-		// }
-		/* SIMULATE ERR SYNTAX */
-		//ClearBuffer(buffer);
-		//strcpy(buffer, "2 3 4 5\n");
-		/* END SIMULATE */
-		
+				
 		write(simpleSocket, bufferMsg, strlen(bufferMsg));
 
-		if(nValues!=0){
+		if(val!=0){
 			//WAITING RESULT CONFIRM RECIVE DATA
-			clearBuffer(buffer);
+			resetBuffer(buffer);
 			
 					
 			returnStatus = read(simpleSocket, buffer, sizeof(buffer));
@@ -183,8 +168,8 @@ int main(int argc, char *argv[]) {
 				close(simpleSocket);
 				exit(1);			
 			}else{
-				valueTmp = checkInt(response.message);
-				if(valueTmp == nValues){
+				tmpValue = checkIfNumber(buffer)== 1 ? convertInteger(response.message): -1;
+				if(tmpValue == val){
 					printf("Server has successfully received %s elements\n",response.message);			
 				}else{
 					printf("Server has reviced incoerent number of elements\n");													
@@ -192,9 +177,9 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-	}while(nValues != 0);
+	}while(val != 0);
 	
-	clearBuffer(buffer);
+	resetBuffer(buffer);
 	returnStatus = read(simpleSocket, buffer, sizeof(buffer));
 	if (parse_response(&response, buffer)==ERROR) {
 		printf("Format response not valid\n");
@@ -206,7 +191,7 @@ int main(int argc, char *argv[]) {
 		close(simpleSocket);
 		exit(1);			
 	}else{
-		printf("N° elements: %d\n", response.nElementElab);
+		printf("N° elements: %d\n", response.elemCalculated);
 		printf("AVG: %.2f\n", response.avg);		
 		printf("Variance: %.2f\n", response.var);				
 	}
@@ -215,37 +200,53 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-int checkInt(char str[]) {
-    setDelimeter(str);
+int convertInteger(char str[]) {
+    replaceEndOfString(str);
 	int number = atoi(str);
 	if(number == 0)
 		return -1;
     return number;
 }
 
-void setDelimeter(char* str) {
-    if (str[strlen(str) - 1] == '\n')
-        str[strlen(str) - 1] = '\0';
+int checkIfNumber(char str[]){
+	//replaceEndOfString(str);
+    int length,i; 
+    length = strlen (str);
+	printf ("string %s %d\n", str, length);
+	int charAscii;
+    for (i=0;i<length; i++)
+		charAscii = (int)str[i];
+		// convert char in ASCII code and check if is not a number
+        if (charAscii < 48 || charAscii > 57)
+        {
+            printf ("Entered input is not a positive number %c\n", str[i]);
+            return -1;
+        }
+    //printf ("Given input is a number\n");
+	return 1;
 }
 
-void clearBuffer(char* buffer){
-	memset(buffer, 0, 512);
-}
 
-int parse_response(responseStr* response, char buffer[]) {
-	char bufferBk[512];
-	stpcpy(bufferBk, buffer);
-	if (strlen(buffer) > 512) {
-        printf("ERROR Message too long: %lu char\n", strlen(buffer));
-        return ERROR;
-    }
+char* substr(char *src, int m, int n){
+	int len = n - m;
+	char *dest = (char*)malloc(sizeof(char) * (len + 1));
+	strncpy(dest, (src + m), len);
+	return dest;
+}
+int parse_response(serverResponse* response, char buffer[]) {
+	char bufferCopy[MAX_BUFFER_SIZE];
+	stpcpy(bufferCopy, buffer);
 	
     if (buffer[strlen(buffer)-1] != '\n') {
-        printf("ERROR <LF> not found\n");
+        printf("ERROR End Line Character not found\n");
         return ERROR;
     }
-	setDelimeter(buffer);
-	clearBuffer(response->message);
+	if (strlen(buffer) > MAX_BUFFER_SIZE) {
+        printf("ERROR Message exceeds: %lu char\n", strlen(buffer));
+        return ERROR;
+    }
+	replaceEndOfString(buffer);
+	resetBuffer(response->message);
 	
 	int nToken = 0;
 	char *token;	
@@ -258,30 +259,31 @@ int parse_response(responseStr* response, char buffer[]) {
 		switch (nToken)
 		{
 			case 0:
-				if (strcmp(token, "OK") == 0){
-					response->state = OK;
-					startMsg = 3;
-				}else if (strcmp(token, "ERR") == 0){
+				if (strcmp(token, "ERR") == 0){
 					response->state = ERR;
 					startMsg = 4;					
+				}else if (strcmp(token, "OK") == 0){
+					response->state = OK;
+					startMsg = 3;
+
 				}else{
 					printf("Invalid state");
 					return ERROR;					
 				}
 				break;
 			case 1: 
-				if (strcmp(token, "START") == 0){
-					response->type = START;
-					startMsg += 6;					
-				}else if (strcmp(token, "SYNTAX") == 0){
+				if (strcmp(token, "SYNTAX") == 0){
 					response->type = SYNTAX;
 					startMsg += 7;					
-				}else if (strcmp(token, "DATA") == 0){
-					response->type = DATA;		
-					startMsg += 5;
+				}else if (strcmp(token, "START") == 0){
+					response->type = START;
+					startMsg += 6;
 				}else if (strcmp(token, "STATS") == 0){
 					response->type = STATS;						
 					startMsg += 6;					
+				}else if (strcmp(token, "DATA") == 0){
+					response->type = DATA;		
+					startMsg += 5;
 				}else{
 					printf("Invalid type");
 					return ERROR;					
@@ -289,9 +291,9 @@ int parse_response(responseStr* response, char buffer[]) {
 				break;
 			case 2:
 				if(response->type==STATS && response->state==OK){
-					response->nElementElab = checkInt(token);
+					response->elemCalculated = checkIfNumber(buffer)== 1 ? convertInteger(token): -1;
 				}else{
-					strcpy(response->message, substr(bufferBk, startMsg, strlen(bufferBk)-1));	
+					strcpy(response->message, substr(bufferCopy, startMsg, strlen(bufferCopy)-1));	
 					return CORRECT;					
 				}
 				break;
@@ -299,7 +301,7 @@ int parse_response(responseStr* response, char buffer[]) {
 				if(response->type==STATS){
 					response->avg = atof(token);
 				}else{				
-					printf("Too much tokens, '%s', number=%d, type=%d\n",token,nToken,response->type);
+					printf("Error!! Too much tokens, '%s', number=%d, type=%d\n",token,nToken,response->type);
 					return ERROR;
 					break;				
 				}
@@ -308,13 +310,13 @@ int parse_response(responseStr* response, char buffer[]) {
 				if(response->type==STATS){
 					response->var = atof(token);
 				}else{				
-					printf("Too much tokens, '%s', number=%d, type=%d\n",token,nToken,response->type);
+					printf("Error!! Too much tokens, '%s', number=%d, type=%d\n",token,nToken,response->type);
 					return ERROR;
 					break;				
 				}				
 				break;
 			default: 
-				printf("Too much tokens, '%s', number=%d\n",token,nToken);
+				printf("Error!! Too much tokens, '%s', number=%d\n",token,nToken);
 				return ERROR;
 				break;
 		}
@@ -324,9 +326,12 @@ int parse_response(responseStr* response, char buffer[]) {
     return CORRECT;
 }
 
-char* substr(char *src, int m, int n){
-	int len = n - m;
-	char *dest = (char*)malloc(sizeof(char) * (len + 1));
-	strncpy(dest, (src + m), len);
-	return dest;
+void resetBuffer(char* buffer){
+	memset(buffer, 0, MAX_BUFFER_SIZE);
+}
+
+// replace \n with \0 termination
+void replaceEndOfString(char* str) {
+    if (str[strlen(str) - 1] == '\n')
+        str[strlen(str) - 1] = '\0';
 }
