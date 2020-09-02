@@ -8,27 +8,26 @@
 #include <arpa/inet.h>
 #include <math.h>
 
-#define WELCOME "SERVER, GET YOUR IP : "
-#define CORRECT 1
-#define ERROR 0
+#define WELCOME_MSG "SERVER, GET YOUR IP : "
 #define MAX_BUFFER_SIZE 512
 
 void replaceEndOfString(char* str);
+int checkIfNumber(char* str);
 int convertInteger(char str[]);
 void resetBuffer(char* buffer);
 int checkMessage(char buffer[]);
 
-typedef enum {
-	OK,
-    ERR
-} result;
+// typedef enum {
+// 	OK,
+//     ERR
+// } result;
 
-typedef enum {
-	START,
-    SYNTAX,
-	DATA,
-	STATS
-} responseType;
+// typedef enum {
+// 	START,
+//     SYNTAX,
+// 	DATA,
+// 	STATS
+// } responseType;
 
 int main(int argc, char *argv[]) {
 
@@ -52,14 +51,16 @@ int main(int argc, char *argv[]) {
 	int indexToken = 0;
 	int valid = 1;
 	
+	// check if number of parameters is correct, if not warn user
     if (2 != argc) 
 	{
         fprintf(stderr, "Number of paramter Incorrect. Usage: %s <port>\n", argv[0]);
         exit(1);
     }
-	
+	// open socket
     mySocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
+	// if socket is not created correctly exit
     if (mySocket == -1) 
 	{
         fprintf(stderr, "Could not create a socket!\n");
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
 	    fprintf(stderr, "Socket created!!\n");
     }
 
-    /* retrieve the port number for listening */
+    /* retrieve the port number  */
     serverPort = atoi(argv[1]);
 
     /* setup the address structure */
@@ -80,9 +81,10 @@ int main(int argc, char *argv[]) {
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(serverPort);
 
-    /*  bind to the address and port with our socket  */
+    /*  bind the address and port with our socket  */
     returnStatus = bind(mySocket,(struct sockaddr *)&server,sizeof(server));
 
+	// check if bind is done
     if (returnStatus == 0) 
 	{
 	    fprintf(stderr, "Bind completed!!\n");
@@ -94,9 +96,10 @@ int main(int argc, char *argv[]) {
 		exit(1);
     }
 
-    /* lets listen on the socket for connections      */
+    /* listen for connection on socket  */
     returnStatus = listen(mySocket, 5);
 
+	// check if there are problem to listen socket
     if (returnStatus == -1) 
 	{
         fprintf(stderr, "Problem! Cannot listen on socket!\n");
@@ -104,8 +107,10 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
+	// infinite loop in order to get server always on
     while (1)
     {
+		// declare clientName
         struct sockaddr_in clientName = { 0 };
 		int simpleChildSocket = 0;
 		int clientNameLength = sizeof(clientName);
@@ -118,9 +123,10 @@ int main(int argc, char *argv[]) {
 		indexToken = 0;
 		valid = 1;		
 
-		/* wait here the accept*/
+		// wait here the accept
         simpleChildSocket = accept(mySocket,(struct sockaddr *)&clientName, &clientNameLength);
 
+		// check if socket is accepted, if not exit
 		if (simpleChildSocket == -1) {
 			fprintf(stderr, "Cannot accept connections!\n");
 			close(mySocket);
@@ -130,18 +136,20 @@ int main(int argc, char *argv[]) {
 
 		char *clientIP = inet_ntoa(clientName.sin_addr);
 
-		/* handle the new connection request  */
-		/* write out our message to the client */
-
+		// handle the new connection request 
+		// clear buffer and write out our message to the client 
 		resetBuffer(MESSAGE);
 		strcpy(MESSAGE,"OK START ");
-		strcat(MESSAGE, WELCOME);
+		strcat(MESSAGE, WELCOME_MSG);
 		strcat(MESSAGE, clientIP);
 		strcat(MESSAGE, "\n");
 		//fprintf(stderr,"%s", MESSAGE);
+		// write message to socket
 		write(simpleChildSocket, MESSAGE, strlen(MESSAGE));
 
+		//clear buffer
 		resetBuffer(MESSAGE);
+		// loop with do while to each element received
 		do
 		{
 			tmp = 0;			
@@ -156,14 +164,15 @@ int main(int argc, char *argv[]) {
 				close(simpleChildSocket);
 				exit(1);
 			}
-			if(checkMessage(buffer)==ERROR){
+			if(checkMessage(buffer)==0){
 				close(simpleChildSocket);
 				exit(1);
 			}
 			
 			//printf("MESSAGE RECIVE: %s", buffer);
+			// divide buffer into tokens separated by " "
 			token = strtok(buffer, " ");
-			
+			// loop on all tokenArray
 			while( token != NULL ) {
 				//printf("token %s\n",token);
 				if(indexToken==0){
@@ -171,7 +180,7 @@ int main(int argc, char *argv[]) {
 						tmp=0;
 						//printf("FIRST TOKEN is zero? %s", token);						
 					}else{				
-						tmp = convertInteger(token);
+						tmp = checkIfNumber(token) == 1 ? convertInteger(token) : -1;
 						
 						//First Element
 						if(tmp<0){
@@ -182,7 +191,8 @@ int main(int argc, char *argv[]) {
 						nTmpElements = tmp;
 					}
 				}else{
-					tmp = convertInteger(token);
+					tmp = checkIfNumber(token) == 1 ? convertInteger(token) : -1;
+					// check if is a positive integer
 					if(tmp<0){
 						strcpy(MESSAGE,"ERR DATA The input must be a positive number\n");
 						valid = 0;
@@ -199,10 +209,10 @@ int main(int argc, char *argv[]) {
 			
 			//printf("ELAB: %d, FIRST ELE: %d\n",elemCalculated,nTmpElements);
 			
-			//Check NElementElab
+			//Check if valid
 			if(valid==1){
 				if(nTmpElements != elemCalculated){
-					strcpy(MESSAGE,"ERR DATA First element is not consistent with the elements sent\n");
+					strcpy(MESSAGE,"ERR DATA First element is not consistent\n");
 					write(simpleChildSocket, MESSAGE, strlen(MESSAGE));			
 					close(simpleChildSocket);
 					break;					
@@ -217,6 +227,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 			}else{
+				//if is valid write messagge to client and close socket
 				write(simpleChildSocket, MESSAGE, strlen(MESSAGE));		
 				close(simpleChildSocket);
 				break;					
@@ -227,18 +238,18 @@ int main(int argc, char *argv[]) {
 		}while(tmp != 0);
 
 		if (tmp == 0 && totalElement == 0) {
-			strcpy(MESSAGE,"ERR STATS 0 number received and NO other numbers Sended before.\n");
+			strcpy(MESSAGE,"ERR STATS 0 number received and NO other numbers sended before.\n");
 			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
 		}
 		else if(totalElement==1){
-			strcpy(MESSAGE,"ERR STATS The popolation should be greater than 1\n");
+			strcpy(MESSAGE,"ERR STATS The popolation to calculate Average and Variance should be greater than 1\n");
 			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
 		}else{
-			//CALC AVG 
+			//CALC AVERAGE AND VARIANCE
 			float avg;
 			int tot=0;
 			int i;
-			float var;
+			float var = 0;;
 			for(i = 0; i < totalElement; i++){
 				tot=tot + arrData[i];
 			}
@@ -255,11 +266,11 @@ int main(int argc, char *argv[]) {
 			strcat(MESSAGE,buffer);
 			resetBuffer(buffer);
 			
-			sprintf(buffer, "%.2f ", avg);
+			sprintf(buffer, "%.3f ", avg);
 			strcat(MESSAGE,buffer);
 			resetBuffer(buffer);
 			
-			sprintf(buffer, "%.2f\n", var);
+			sprintf(buffer, "%.3f\n", var);
 			strcat(MESSAGE,buffer);
 			resetBuffer(buffer);
 
@@ -272,17 +283,46 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void resetBuffer(char* buffer){
-	memset(buffer, 0, MAX_BUFFER_SIZE);
-}
-
+// convert string to number using atoi function
 int convertInteger(char str[]) {
     replaceEndOfString(str);
-	printf("atoi %s \n", str);
+	//printf("atoi %s \n", str);
 	int number = atoi(str);
 	if(number == 0)
 		return -1;
     return number;
+}
+
+// check if message exceed the max buffer size and if contains the end character
+int checkMessage(char buffer[]){
+	if (strlen(buffer) > MAX_BUFFER_SIZE) {
+        printf("ERROR Message too long: %lu char\n", strlen(buffer));
+        return 0;
+    }
+	
+    if (buffer[strlen(buffer)-1] != '\n') {
+        printf("ERROR End Line Character not found\n");
+        return 0;
+    }
+}
+//check if is a number converting the input to ASCII code
+int checkIfNumber(char str[]){
+	replaceEndOfString(str);
+    int i; 
+    int length = strlen (str);
+	//printf ("string %s %d\n", str, length);
+	int charAscii;
+    for (i=0;i<length; i++)
+		charAscii = (int)str[i];
+		//printf ("charAscii %d\n", charAscii);
+		// convert char in ASCII code and check if is not a number
+        if (charAscii < 48 || charAscii > 57)
+        {
+            printf ("Entered input is not number %c\n", str[i]);
+            return -1;
+        }
+    //printf ("Given input is a number\n");
+	return 1;
 }
 
 void replaceEndOfString(char* str) {
@@ -290,14 +330,7 @@ void replaceEndOfString(char* str) {
         str[strlen(str) - 1] = '\0';
 }
 
-int checkMessage(char buffer[]){
-	if (strlen(buffer) > MAX_BUFFER_SIZE) {
-        printf("ERROR Message too long: %lu char\n", strlen(buffer));
-        return ERROR;
-    }
-	
-    if (buffer[strlen(buffer)-1] != '\n') {
-        printf("ERROR End Line Character not found\n");
-        return ERROR;
-    }
+//clear buffer
+void resetBuffer(char* buffer){
+	memset(buffer, 0, MAX_BUFFER_SIZE);
 }
