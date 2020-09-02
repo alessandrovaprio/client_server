@@ -237,28 +237,26 @@ int main(int argc, char *argv[]) {
 			resetBuffer(buffer);
 		}while(tmp != 0);
 
-		if (tmp == 0 && totalElement == 0) {
-			strcpy(MESSAGE,"ERR STATS 0 number received and NO other numbers sended before.\n");
-			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
-		}
-		else if(totalElement==1){
-			strcpy(MESSAGE,"ERR STATS The popolation to calculate Average and Variance should be greater than 1\n");
-			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
-		}else{
-			//CALC AVERAGE AND VARIANCE
+		if (totalElement > 0) {
+			//EVALUATE AVERAGE AND VARIANCE
 			float avg;
+			float var = 0;
 			int tot=0;
-			int i;
-			float var = 0;;
-			for(i = 0; i < totalElement; i++){
-				tot=tot + arrData[i];
+			int i = 0;
+			while(i < totalElement) {
+				//printf("giro %d \n", i);
+				tot+= arrData[i];
+				i++;
+				//printf("calc tot=%d var=%d i=%d \n", tot, var, i);
 			}
 			avg = (float)tot/(float)totalElement;
-			
-			for(i = 0; i < totalElement; i++){
+
+			// second loop to evaluate variance
+			i = 0;
+			while(i < totalElement) {
 				var += pow((float)arrData[i] - avg,2);
+				i++;
 			}
-			
 			var = var / totalElement;
 			
 			strcpy(MESSAGE,"OK STATS ");
@@ -275,8 +273,20 @@ int main(int argc, char *argv[]) {
 			resetBuffer(buffer);
 
 			//printf("MESSAGE STATS: %s\n", MESSAGE);
-			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));		
+
+			// write results to client
+			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));
+		}else if (tmp == 0 && totalElement == 0) {
+			strcpy(MESSAGE,"ERR STATS 0 number received and NO other numbers sended before.\n");
+			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
+		}else if(totalElement==1){
+			strcpy(MESSAGE,"ERR STATS The popolation to calculate Average and Variance should be greater than 1\n");
+			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
+		}else {
+			strcpy(MESSAGE,"ERR STATS unexpected error\n");
+			write(simpleChildSocket, MESSAGE, strlen(MESSAGE));	
 		}
+		
     }
 
     close(mySocket);
