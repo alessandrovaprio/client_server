@@ -184,7 +184,7 @@ int main(int argc, char *argv[]) {
 						
 						//First Element
 						if(tmp<0){
-							strcpy(MESSAGE,"ERR DATA The First element is not positive integer\n");
+							strcpy(MESSAGE,"ERR SYNTAX The First element is not positive integer\n");
 							valid = 0;
 							break;
 						}
@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
 					tmp = checkIfNumber(token) == 1 ? convertInteger(token) : -1;
 					// check if is a positive integer
 					if(tmp<0){
-						strcpy(MESSAGE,"ERR DATA The input must be a positive number\n");
+						strcpy(MESSAGE,"ERR SYNTAX The input must be a positive number\n");
 						valid = 0;
 						break;						
 					}
