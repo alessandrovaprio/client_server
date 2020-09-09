@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 	socklen_t len;
 	struct sockaddr_storage addr;
 		
-	int arrDataIndex = 0;
+	int arrDataInd = 0;
 	int tmp = 0;
 	int totalElement = 0;
 	int nTmpElements = 0;
@@ -74,14 +74,14 @@ int main(int argc, char *argv[]) {
     /* retrieve the port number  */
     serverPort = atoi(argv[1]);
 
-    /* setup the address structure */
-    /* use INADDR_ANY to bind to all local addresses  */
+    // setup the address structure
+    // use INADDR_ANY to bind to all local addresses
     memset(&server, '\0', sizeof(server)); 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons(serverPort);
 
-    /*  bind the address and port with our socket  */
+    // Bind the address and port with our socket 
     returnStatus = bind(mySocket,(struct sockaddr *)&server,sizeof(server));
 
 	// check if bind is done
@@ -96,7 +96,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
     }
 
-    /* listen for connection on socket  */
+    // listen for connection on socket 
     returnStatus = listen(mySocket, 5);
 
 	// check if there are problem to listen socket
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
 		int simpleChildSocket = 0;
 		int clientNameLength = sizeof(clientName);
 		
-		arrDataIndex = 0;
+		arrDataInd = 0;
 		tmp = 0;
 		totalElement = 0;
 		nTmpElements = 0;
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
 
 		//clear buffer
 		resetBuffer(MESSAGE);
-		// loop with do while to each element received
+		// loop with do while for each element received
 		do
 		{
 			tmp = 0;			
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
 			elemCalculated = 0;
 			indexToken=0;
 			valid = 1;
-			/* WAITING <number of data> <data1> <data2> <dataN>*/
+			// WAITING <number of data> <data1> <data2> <dataN>
 			returnStatus = read(simpleChildSocket, buffer, sizeof(buffer) - 1);
 			if (returnStatus <= 0) {
 				fprintf(stderr, "Error read client message\n");
@@ -198,8 +198,8 @@ int main(int argc, char *argv[]) {
 						valid = 0;
 						break;						
 					}
-					arrData[arrDataIndex] = tmp;
-					arrDataIndex +=1;
+					arrData[arrDataInd] = tmp;
+					arrDataInd +=1;
 					elemCalculated +=1;
 				}
 				indexToken +=1;				

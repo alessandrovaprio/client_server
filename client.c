@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    /* create socket      */
+    // Create Socket
     simpleSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
     if (simpleSocket == -1){
@@ -62,7 +62,7 @@ int main(int argc, char *argv[]) {
     server.sin_addr.s_addr= inet_addr(argv[1]);	
     server.sin_port = htons(serverPort);
 
-    /*  connect to the address and port with our socket  */
+    //  Connect our socket to the address and port
     returnStatus = connect(simpleSocket, (struct sockaddr *)&server, sizeof(server));
     if (returnStatus < 0) {
         fprintf(stderr, "Could not connect to address!\n");
@@ -77,7 +77,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 	
-	//printf("** Welcome: %s **\n", response.message);
 	printf("** Welcome: %s **\n", message);
 	printf("** This program is writed to give you Average and Variance **\n");
 	printf("** Insert the number of the data do you want to process. **\n");
@@ -145,10 +144,11 @@ int main(int argc, char *argv[]) {
 		write(simpleSocket, bufferMsg, strlen(bufferMsg));
 
 		if(val!=0){
-			//WAITING RESULT CONFIRM RECIVE DATA
+			// clear buffer
 			resetBuffer(buffer);
 			
 					
+			// Read result and parse responde
 			returnStatus = read(simpleSocket, buffer, sizeof(buffer));
 			if (parse_response(buffer)==ERROR) {
 				printf("Format response not valid\n");
@@ -211,7 +211,6 @@ int checkIfNumber(char str[]){
 	int charAscii;
     for (i=0;i<length; i++) {
 		charAscii = (int)str[i];
-		//printf ("charAscii %d\n", charAscii);
 		// convert char in ASCII code and check if is not a number
         if (charAscii < 48 || charAscii > 57)
         {
@@ -230,6 +229,7 @@ char* substr(char *src, int m, int n){
 	strncpy(dest, (src + m), len);
 	return dest;
 }
+
 //parse the response and check if it is correct
 int parse_response(char buffer[]) {
 	char bufferCopy[MAX_BUFFER_SIZE];
@@ -255,7 +255,7 @@ int parse_response(char buffer[]) {
 	//loop on tokenArray
 	while( token != NULL ) {
 		if (nToken == 4) {
-			if(1==STATS){
+			if(STATS == 1){
 					var = atof(token);
 				}else{				
 					printf("Error!! Too many tokens, '%s', number=%d, type=%d\n",token,nToken);
@@ -263,7 +263,7 @@ int parse_response(char buffer[]) {
 				}				
 		}
 		else if (nToken == 3) {
-			if(1==STATS){
+			if(STATS == 1){
 					avg = atof(token);
 			}else{				
 				printf("Error!! Too many tokens, '%s', number=%d, type=%d\n",token,nToken);
@@ -271,7 +271,7 @@ int parse_response(char buffer[]) {
 			}
 		}
 		else if (nToken == 2) {
-			if(1==STATS && state==1){
+			if(STATS == 1 && state==1){
 					elemCalculated = checkIfNumber(token)== 1 ? convertInteger(token): -1;
 			}else{
 				strcpy(message, substr(bufferCopy, startMsg, strlen(bufferCopy)-1));	
